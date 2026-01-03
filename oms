@@ -1,0 +1,239 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+using namespace std;
+
+#define MENU_FILE "menu.csv"
+#define ORDER_FILE "orders.csv"
+
+
+int allowedIDs[10] = {1111,1112,1113,1114,1115,1116,1117,1118,1119,1200};
+
+
+bool checkOrderID(string orderID) {
+    for (int i = 0; i < 10; i++) {
+        if (orderID == to_string(allowedIDs[i]))
+            return true;
+    }
+    return false;
+}
+
+
+int findPrice(int itemID) {
+    ifstream menuFile(MENU_FILE);
+    string line;
+
+    getline(menuFile, line); 
+
+    while (getline(menuFile, line)) {
+        stringstream ss(line);  //excel ki csv file ko line by line read krne k liye..uski rows or col ko commas mai split kiya
+        string id, name, price;
+
+        getline(ss, id, ',');
+        getline(ss, name, ',');
+        getline(ss, price, ',');
+
+        if (stoi(id) == itemID) {
+            menuFile.close();
+            return stoi(price);
+        }
+    }
+
+    menuFile.close();
+    return -1;
+}
+
+
+void addOrder() {
+    string orderID;
+    string customerName;
+    int itemID;
+    int quantity;
+
+    cout << "\nWhat would you like to eat?\n";
+
+    cout << "Enter Order ID: ";
+    cin >> orderID;
+
+    if (!checkOrderID(orderID)) {
+        cout << "Invalid Order ID!\n";
+        return;
+    }
+
+    cin.ignore();
+    cout << "Enter Customer Name: ";
+    getline(cin, customerName);
+
+    cout << "Enter Item ID: ";
+    cin >> itemID;
+
+    int price = findPrice(itemID);
+    if (price == -1) {
+        cout << "Invalid Item ID!\n";
+        return;
+    }
+
+    cout << "Enter Quantity: ";
+    cin >> quantity;
+
+    ofstream orderFile(ORDER_FILE, ios::app);
+    orderFile << orderID << "," << customerName << ","
+              << itemID << "," << quantity << "," << price << endl;
+    orderFile.close();
+
+    cout << "\nBILL\n";
+    cout << "Total Bill: " << price * quantity << endl;
+    cout << "Thanks for your order!\n";
+}
+
+
+void showOrders() {
+    ifstream orderFile(ORDER_FILE);
+    string line;
+
+    cout << "\nOrderID  CustomerName  ItemID  Quantity  Price  Total\n";
+    cout << "\n";
+
+    while (getline(orderFile, line)) {
+        if (line == "") continue;
+
+        stringstream ss(line);
+        string orderID, customerName, itemID, quantity, price;
+
+        getline(ss, orderID, ',');
+        getline(ss, customerName, ',');
+        getline(ss, itemID, ',');
+        getline(ss, quantity, ',');
+        getline(ss, price, ',');
+
+        int total = stoi(quantity) * stoi(price);
+
+        cout << orderID << "   " << customerName << "   "
+             << itemID << "   " << quantity << "   "
+             << price << "   " << total << endl;
+    }
+
+    orderFile.close();
+}
+
+
+void cancelOrder() {
+    string orderID;
+    cout << "Enter Order ID to cancel: ";
+    cin >> orderID;
+
+    if (!checkOrderID(orderID)) {
+        cout << "Invalid Order ID!\n";
+        return;
+    }
+
+    ifstream orderFile(ORDER_FILE);
+    ofstream tempFile("temp.csv");
+    string line;
+    bool found = false;
+
+    while (getline(orderFile, line)) {
+        if (line.find(orderID + ",") != 0)
+            tempFile << line << endl;
+        else
+            found = true;
+    }
+
+    orderFile.close();
+    tempFile.close();
+
+    if (!found) {
+        cout << "Order not found!\n";
+        remove("temp.csv");
+        return;
+    }
+
+    remove(ORDER_FILE);
+    rename("temp.csv", ORDER_FILE);
+
+    cout << "Order Cancelled!\n";
+}
+
+void updateOrder() {
+    string orderID;
+    cout << "Enter Order ID to update: ";
+    cin >> orderID;
+
+    if (!checkOrderID(orderID)) {
+        cout << "Invalid Order ID!\n";
+        return;
+    }
+
+    ifstream orderFile(ORDER_FILE);
+    ofstream tempFile("temp.csv");
+    string line;
+    bool found = false;
+
+    while (getline(orderFile, line)) {
+        stringstream ss(line);
+        string fileOrderID, customerName, itemID, quantity, price;
+
+        getline(ss, fileOrderID, ',');
+        getline(ss, customerName, ',');
+        getline(ss, itemID, ',');
+        getline(ss, quantity, ',');
+        getline(ss, price, ',');
+
+        if (fileOrderID == orderID) {
+            found = true;
+
+            cin.ignore();
+            cout << "Enter New Customer Name: ";
+            getline(cin, customerName);
+
+            cout << "Enter New Item ID: ";
+            cin >> itemID;
+
+            cout << "Enter New Quantity: ";
+            cin >> quantity;
+
+            int newPrice = findPrice(stoi(itemID));
+
+            tempFile << fileOrderID << "," << customerName << ","
+                     << itemID << "," << quantity << "," << newPrice << endl;
+        } else {
+            tempFile << line << endl;
+        }
+    }
+
+    orderFile.close();
+    tempFile.close();
+
+    if (!found) {
+        cout << "Order not found!\n";
+        remove("temp.csv");
+        return;
+    }
+
+    remove(ORDER_FILE);
+    rename("temp.csv", ORDER_FILE);
+
+    cout << "Order Updated!\n";
+}
+
+
+int main() {
+    int choice;
+    do {
+        cout << "\n1 Add Order";
+        cout << "\n2 Cancel Order";
+        cout << "\n3 Update Order";
+        cout << "\n4 Show Orders";
+        cout << "\n5 Exit";
+        cout << "\nChoice: ";
+        cin >> choice;
+
+        if (choice == 1) addOrder();
+        else if (choice == 2) cancelOrder();
+        else if (choice == 3) updateOrder();
+        else if (choice == 4) showOrders();
+
+    } while (choice != 5);
+
+    return 0;
+}
